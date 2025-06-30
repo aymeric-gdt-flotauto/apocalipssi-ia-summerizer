@@ -23,3 +23,11 @@ export interface ActionItem {
   priority: 'high' | 'medium' | 'low';
   category: string;
 }
+
+export interface HistoryEntry {
+  id: string;
+  document: Document;
+  analysisResult: AnalysisResult;
+  createdAt: Date;
+  tags?: string[];
+}
