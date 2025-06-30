@@ -54,16 +54,16 @@ const Analysis = sequelize.define('Analysis', {
   tableName: 'analyses',
   timestamps: true,
   indexes: [
-    {
-      fields: ['documentId']
-    },
-    {
-      fields: ['confidence']
-    },
-    {
-      fields: ['createdAt']
-    }
-  ]
+  {
+    fields: ['document_id']  
+  },
+  {
+    fields: ['confidence']
+  },
+  {
+    fields: ['created_at']  
+  }
+]
 });
 
 // Méthodes d'instance
