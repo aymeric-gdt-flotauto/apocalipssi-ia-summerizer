@@ -1,87 +1,82 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { Brain, Sparkles, FileCheck, X, AlertCircle, CheckCircle, FileText } from 'lucide-react';
 import { Navigation } from './components/Navigation';
 import { UploadZone } from './components/UploadZone';
 import { DocumentPreview } from './components/DocumentPreview';
 import { AnalysisResults } from './components/AnalysisResults';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { HistoryPage } from './components/HistoryPage';
-import { Brain, Sparkles, FileCheck, FileText } from 'lucide-react';
 import type { Document, AnalysisResult, HistoryEntry } from './types';
+
+interface Toast {
+  id: string;
+  type: 'success' | 'error';
+  message: string;
+}
+
+const Toast = ({ toast, onClose }: { toast: Toast; onClose: (id: string) => void }) => {
+  return (
+    <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${
+      toast.type === 'error' ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'
+    }`}>
+      <div className="flex items-center space-x-3">
+        {toast.type === 'error' ? (
+          <AlertCircle size={20} className="text-red-600" />
+        ) : (
+          <CheckCircle size={20} className="text-green-600" />
+        )}
+        <p className={`text-sm font-medium ${
+          toast.type === 'error' ? 'text-red-800' : 'text-green-800'
+        }`}>
+          {toast.message}
+        </p>
+        <button
+          onClick={() => onClose(toast.id)}
+          className={`p-1 rounded hover:bg-opacity-20 ${
+            toast.type === 'error' ? 'hover:bg-red-600' : 'hover:bg-green-600'
+          }`}
+        >
+          <X size={16} className={toast.type === 'error' ? 'text-red-600' : 'text-green-600'} />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'history'>('home');
   const [document, setDocument] = useState<Document | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([
-    // Mock data for demonstration
-    {
-      id: '1',
-      document: {
-        id: '1',
-        name: 'Rapport_Financier_Q4_2023.pdf',
-        size: 2456789,
-        type: 'application/pdf',
-        uploadedAt: new Date('2024-01-15T10:30:00'),
-        status: 'completed'
-      },
-      analysisResult: {
-        summary: "Rapport financier détaillé du quatrième trimestre 2023 montrant une croissance de 15% du chiffre d'affaires et une amélioration significative de la marge opérationnelle.",
-        keyPoints: [
-          "Chiffre d'affaires en hausse de 15% par rapport à Q4 2022",
-          "Marge opérationnelle améliorée de 3,2 points",
-          "Réduction des coûts opérationnels de 8%",
-          "Investissements R&D augmentés de 20%"
-        ],
-        actionItems: [
-          {
-            id: '1',
-            title: 'Optimiser la stratégie commerciale',
-            description: 'Capitaliser sur la croissance pour étendre la part de marché',
-            priority: 'high',
-            category: 'Stratégie'
-          }
-        ],
-        confidence: 94,
-        processingTime: 3.8
-      },
-      createdAt: new Date('2024-01-15T10:35:00')
-    },
-    {
-      id: '2',
-      document: {
-        id: '2',
-        name: 'Contrat_Partenariat_TechCorp.pdf',
-        size: 1234567,
-        type: 'application/pdf',
-        uploadedAt: new Date('2024-01-10T14:20:00'),
-        status: 'completed'
-      },
-      analysisResult: {
-        summary: "Contrat de partenariat stratégique avec TechCorp définissant les modalités de collaboration technologique et les conditions financières sur 3 ans.",
-        keyPoints: [
-          "Durée du contrat: 3 ans renouvelable",
-          "Investissement initial: 2,5M€",
-          "Partage des revenus: 60/40",
-          "Clause d'exclusivité territoriale"
-        ],
-        actionItems: [
-          {
-            id: '1',
-            title: 'Validation juridique',
-            description: 'Faire réviser les clauses par le département juridique',
-            priority: 'high',
-            category: 'Juridique'
-          }
-        ],
-        confidence: 88,
-        processingTime: 5.2
-      },
-      createdAt: new Date('2024-01-10T14:25:00')
-    }
-  ]);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
+
+  const showToast = (type: 'success' | 'error', message: string) => {
+    const id = Math.random().toString(36).substr(2, 9);
+    const newToast: Toast = { id, type, message };
+
+    setToasts(prev => [...prev, newToast]);
+
+    setTimeout(() => {
+      setToasts(prev => prev.filter(toast => toast.id !== id));
+    }, 5000);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
 
   const handleFileUpload = useCallback(async (file: File) => {
+    if (!file.type.includes('pdf')) {
+      showToast('error', 'Seuls les fichiers PDF sont acceptés.');
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      showToast('error', 'Le fichier ne doit pas dépasser 50MB.');
+      return;
+    }
+
     const newDocument: Document = {
       id: Math.random().toString(36).substr(2, 9),
       name: file.name,
@@ -94,71 +89,49 @@ function App() {
     setDocument(newDocument);
     setAnalysisResult(null);
     setIsProcessing(true);
+    showToast('success', 'Fichier téléchargé avec succès');
 
-    // Simulate upload
-    setTimeout(() => {
-      setDocument(prev => prev ? { ...prev, status: 'processing' } : null);
-    }, 1000);
+    try {
+      setTimeout(() => {
+        setDocument(prev => prev ? { ...prev, status: 'processing' } : null);
+      }, 1000);
 
-    // Simulate AI processing
-    setTimeout(() => {
-      const mockResult: AnalysisResult = {
-        summary: "Ce document présente une analyse détaillée des tendances du marché technologique pour 2024. Il met en évidence les opportunités d'investissement dans l'intelligence artificielle, la cybersécurité et les technologies vertes. Le rapport souligne également les défis réglementaires et les risques potentiels associés à ces secteurs émergents.",
-        keyPoints: [
-          "Croissance prévue de 35% du marché de l'IA en 2024",
-          "Investissements record dans la cybersécurité (2,1 milliards d'euros)",
-          "Nouvelles réglementations européennes sur la protection des données",
-          "Opportunités significatives dans les technologies vertes",
-          "Risques géopolitiques affectant les chaînes d'approvisionnement tech"
-        ],
-        actionItems: [
-          {
-            id: '1',
-            title: 'Réviser la stratégie d\'investissement IA',
-            description: 'Évaluer les opportunités d\'investissement dans les startups IA prometteuses identifiées dans le rapport',
-            priority: 'high',
-            category: 'Stratégie'
-          },
-          {
-            id: '2',
-            title: 'Renforcer la sécurité informatique',
-            description: 'Augmenter le budget cybersécurité de 25% pour faire face aux nouvelles menaces',
-            priority: 'high',
-            category: 'Sécurité'
-          },
-          {
-            id: '3',
-            title: 'Formation équipe compliance',
-            description: 'Organiser une formation sur les nouvelles réglementations européennes',
-            priority: 'medium',
-            category: 'Conformité'
-          },
-          {
-            id: '4',
-            title: 'Exploration technologies vertes',
-            description: 'Étudier les partenariats potentiels dans le secteur des technologies durables',
-            priority: 'medium',
-            category: 'Innovation'
-          }
-        ],
-        confidence: 92,
-        processingTime: 4.2
-      };
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+      const response = await fetch(`${apiUrl}/api/analyze`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result: AnalysisResult = await response.json();
+
+      if (!response.ok) {
+        throw new Error(`Erreur API: ${response.status}`);
+      }
 
       const completedDocument = { ...newDocument, status: 'completed' as const };
       setDocument(completedDocument);
-      setAnalysisResult(mockResult);
-      setIsProcessing(false);
+      setAnalysisResult(result);
+      showToast('success', 'Analyse terminée avec succès');
 
-      // Add to history
+      // Ajouter à l'historique
       const historyEntry: HistoryEntry = {
         id: Math.random().toString(36).substr(2, 9),
         document: completedDocument,
-        analysisResult: mockResult,
+        analysisResult: result,
         createdAt: new Date()
       };
       setHistoryEntries(prev => [historyEntry, ...prev]);
-    }, 5000);
+
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
+      setDocument(prev => prev ? { ...prev, status: 'error' } : null);
+      showToast('error', 'Erreur lors de l\'analyse du document');
+    } finally {
+      setIsProcessing(false);
+    }
   }, []);
 
   const handleNewDocument = useCallback(() => {
@@ -176,22 +149,26 @@ function App() {
 
   const handleDeleteEntry = useCallback((id: string) => {
     setHistoryEntries(prev => prev.filter(entry => entry.id !== id));
+    showToast('success', 'Entrée supprimée de l\'historique');
   }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+      {toasts.map(toast => (
+        <Toast key={toast.id} toast={toast} onClose={removeToast} />
+      ))}
+
       <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {currentPage === 'history' ? (
-          <HistoryPage 
+          <HistoryPage
             historyEntries={historyEntries}
             onViewAnalysis={handleViewAnalysis}
             onDeleteEntry={handleDeleteEntry}
           />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Upload Section */}
             <div className="lg:col-span-2">
               {!document ? (
                 <div className="space-y-6">
@@ -200,14 +177,13 @@ function App() {
                       Analysez vos documents en quelques secondes
                     </h2>
                     <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                      Téléchargez votre PDF et obtenez instantanément un résumé structuré, 
+                      Téléchargez votre PDF et obtenez instantanément un résumé structuré,
                       les points clés et des suggestions d'actions grâce à notre IA avancée.
                     </p>
                   </div>
-                  
+
                   <UploadZone onFileUpload={handleFileUpload} isProcessing={isProcessing} />
-                  
-                  {/* Features */}
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
                     <div className="text-center p-6 bg-white rounded-xl shadow-sm">
                       <div className="p-3 bg-blue-100 rounded-full inline-block mb-4">
@@ -216,7 +192,7 @@ function App() {
                       <h3 className="font-semibold text-gray-900 mb-2">IA Avancée</h3>
                       <p className="text-sm text-gray-600">Analyse sémantique profonde de vos documents</p>
                     </div>
-                    
+
                     <div className="text-center p-6 bg-white rounded-xl shadow-sm">
                       <div className="p-3 bg-teal-100 rounded-full inline-block mb-4">
                         <Sparkles size={24} className="text-teal-600" />
@@ -224,7 +200,7 @@ function App() {
                       <h3 className="font-semibold text-gray-900 mb-2">Résultats Instantanés</h3>
                       <p className="text-sm text-gray-600">Synthèse générée en moins de 10 secondes</p>
                     </div>
-                    
+
                     <div className="text-center p-6 bg-white rounded-xl shadow-sm">
                       <div className="p-3 bg-orange-100 rounded-full inline-block mb-4">
                         <FileCheck size={24} className="text-orange-600" />
@@ -246,15 +222,15 @@ function App() {
                       Nouveau Document
                     </button>
                   </div>
-                  
+
                   <DocumentPreview document={document} />
-                  
+
                   {isProcessing && (
                     <div className="bg-white rounded-xl shadow-lg">
                       <LoadingSpinner />
                     </div>
                   )}
-                  
+
                   {analysisResult && !isProcessing && (
                     <AnalysisResults results={analysisResult} />
                   )}
@@ -262,7 +238,6 @@ function App() {
               )}
             </div>
 
-            {/* Sidebar */}
             <div className="space-y-6">
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <h3 className="font-semibold text-gray-900 mb-4">Comment ça marche ?</h3>
@@ -328,9 +303,9 @@ function App() {
                             {entry.document.name}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {new Intl.DateTimeFormat('fr-FR', { 
-                              day: 'numeric', 
-                              month: 'short' 
+                            {new Intl.DateTimeFormat('fr-FR', {
+                              day: 'numeric',
+                              month: 'short'
                             }).format(entry.createdAt)}
                           </p>
                         </div>
