@@ -1,5 +1,5 @@
 import React from 'react';
-import { Brain, FileText, History, Home } from 'lucide-react';
+import { Brain, History, Home } from 'lucide-react';
 
 interface NavigationProps {
   currentPage: 'home' | 'history';
@@ -16,7 +16,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentPage, onPageChang
               <Brain size={32} className="text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">DocuMind AI</h1>
+              <h1 className="text-2xl font-bold text-gray-900">ComplySummarize IA</h1>
               <p className="text-sm text-gray-600">Assistant intelligent de synthèse documentaire</p>
             </div>
           </div>
