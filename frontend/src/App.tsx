@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Brain, Sparkles, FileCheck } from 'lucide-react';
 import { UploadZone } from './components/UploadZone';
 import { DocumentPreview } from './components/DocumentPreview';
@@ -12,6 +12,11 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleFileUpload = useCallback(async (file: File) => {
+    if (!file.type.includes('pdf')) {
+      alert('Seuls les fichiers PDF sont acceptés.');
+      return;
+    }
+
     const newDocument: Document = {
       id: Math.random().toString(36).substr(2, 9),
       name: file.name,
@@ -25,60 +30,34 @@ function App() {
     setAnalysisResult(null);
     setIsProcessing(true);
 
-    // Simulate upload
-    setTimeout(() => {
-      setDocument(prev => prev ? { ...prev, status: 'processing' } : null);
-    }, 1000);
+    try {
+      setTimeout(() => {
+        setDocument(prev => prev ? { ...prev, status: 'processing' } : null);
+      }, 1000);
 
-    // Simulate AI processing
-    setTimeout(() => {
-      const mockResult: AnalysisResult = {
-        summary: "Ce document présente une analyse détaillée des tendances du marché technologique pour 2024. Il met en évidence les opportunités d'investissement dans l'intelligence artificielle, la cybersécurité et les technologies vertes. Le rapport souligne également les défis réglementaires et les risques potentiels associés à ces secteurs émergents.",
-        keyPoints: [
-          "Croissance prévue de 35% du marché de l'IA en 2024",
-          "Investissements record dans la cybersécurité (2,1 milliards d'euros)",
-          "Nouvelles réglementations européennes sur la protection des données",
-          "Opportunités significatives dans les technologies vertes",
-          "Risques géopolitiques affectant les chaînes d'approvisionnement tech"
-        ],
-        actionItems: [
-          {
-            id: '1',
-            title: 'Réviser la stratégie d\'investissement IA',
-            description: 'Évaluer les opportunités d\'investissement dans les startups IA prometteuses identifiées dans le rapport',
-            priority: 'high',
-            category: 'Stratégie'
-          },
-          {
-            id: '2',
-            title: 'Renforcer la sécurité informatique',
-            description: 'Augmenter le budget cybersécurité de 25% pour faire face aux nouvelles menaces',
-            priority: 'high',
-            category: 'Sécurité'
-          },
-          {
-            id: '3',
-            title: 'Formation équipe compliance',
-            description: 'Organiser une formation sur les nouvelles réglementations européennes',
-            priority: 'medium',
-            category: 'Conformité'
-          },
-          {
-            id: '4',
-            title: 'Exploration technologies vertes',
-            description: 'Étudier les partenariats potentiels dans le secteur des technologies durables',
-            priority: 'medium',
-            category: 'Innovation'
-          }
-        ],
-        confidence: 92,
-        processingTime: 4.2
-      };
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+      const response = await fetch(`${apiUrl}/api/analyze`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result: AnalysisResult = await response.json();
+
+      if (!response.ok) {
+        throw new Error(`Erreur API: ${response.status}`);
+      }
 
       setDocument(prev => prev ? { ...prev, status: 'completed' } : null);
-      setAnalysisResult(mockResult);
+      setAnalysisResult(result);
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
+      setDocument(prev => prev ? { ...prev, status: 'error' } : null);
+    } finally {
       setIsProcessing(false);
-    }, 5000);
+    }
   }, []);
 
   const handleNewDocument = useCallback(() => {
@@ -89,7 +68,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -102,7 +80,7 @@ function App() {
                 <p className="text-sm text-gray-600">Assistant intelligent de synthèse documentaire</p>
               </div>
             </div>
-            
+
             {document && (
               <button
                 onClick={handleNewDocument}
@@ -118,7 +96,6 @@ function App() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Upload Section */}
           <div className="lg:col-span-2">
             {!document ? (
               <div className="space-y-6">
@@ -127,14 +104,13 @@ function App() {
                     Analysez vos documents en quelques secondes
                   </h2>
                   <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                    Téléchargez votre PDF et obtenez instantanément un résumé structuré, 
+                    Téléchargez votre PDF et obtenez instantanément un résumé structuré,
                     les points clés et des suggestions d'actions grâce à notre IA avancée.
                   </p>
                 </div>
-                
+
                 <UploadZone onFileUpload={handleFileUpload} isProcessing={isProcessing} />
-                
-                {/* Features */}
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
                   <div className="text-center p-6 bg-white rounded-xl shadow-sm">
                     <div className="p-3 bg-blue-100 rounded-full inline-block mb-4">
@@ -143,7 +119,7 @@ function App() {
                     <h3 className="font-semibold text-gray-900 mb-2">IA Avancée</h3>
                     <p className="text-sm text-gray-600">Analyse sémantique profonde de vos documents</p>
                   </div>
-                  
+
                   <div className="text-center p-6 bg-white rounded-xl shadow-sm">
                     <div className="p-3 bg-teal-100 rounded-full inline-block mb-4">
                       <Sparkles size={24} className="text-teal-600" />
@@ -151,7 +127,7 @@ function App() {
                     <h3 className="font-semibold text-gray-900 mb-2">Résultats Instantanés</h3>
                     <p className="text-sm text-gray-600">Synthèse générée en moins de 10 secondes</p>
                   </div>
-                  
+
                   <div className="text-center p-6 bg-white rounded-xl shadow-sm">
                     <div className="p-3 bg-orange-100 rounded-full inline-block mb-4">
                       <FileCheck size={24} className="text-orange-600" />
@@ -164,13 +140,13 @@ function App() {
             ) : (
               <div className="space-y-6">
                 <DocumentPreview document={document} />
-                
+
                 {isProcessing && (
                   <div className="bg-white rounded-xl shadow-lg">
                     <LoadingSpinner />
                   </div>
                 )}
-                
+
                 {analysisResult && !isProcessing && (
                   <AnalysisResults results={analysisResult} />
                 )}
@@ -178,7 +154,6 @@ function App() {
             )}
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h3 className="font-semibold text-gray-900 mb-4">Comment ça marche ?</h3>
