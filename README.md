@@ -1,7 +1,6 @@
 # Apocalipssi IA Summarizer 🚀
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Docker](https://img.shields.io/badge/docker-ready-blue.svg)
 
 **Apocalipssi IA Summarizer** est une application d'analyse intelligente de documents qui traite les fichiers PDF et génère des insights structurés en utilisant des modèles d'IA avancés. Le système offre une interface moderne pour extraire automatiquement des résumés, points clés et éléments d'action à partir de vos documents.
@@ -415,10 +414,6 @@ docker-compose exec ia-service env | grep MODEL
 - **Frontend** : ESLint + Prettier + TypeScript strict
 - **Backend Python** : Black + Flake8 + Type hints
 - **Backend Node.js** : ESLint + StandardJS
-
-## 📄 Licence
-
-Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
 ## 👥 Équipe
 
