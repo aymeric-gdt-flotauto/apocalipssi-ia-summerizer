@@ -1,0 +1,28 @@
+services:
+
+  db-service:
+    image: mysql:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: document_analysis
+      MYSQL_USER: identifiant
+      MYSQL_PASSWORD: motdepasse
+    ports:
+      - 3306:3306
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  ia-service:
+    build:
+      context: ./backend/ia-service
+      dockerfile: Dockerfile
+    ports:
+      - 5000:5000
+    depends_on:
+      - db-service
+
+
+volumes:
+  postgres_data:
+
+
