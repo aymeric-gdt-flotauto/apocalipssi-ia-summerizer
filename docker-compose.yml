@@ -50,7 +50,10 @@ services:
       - service-network
     environment:
       - PORT=${IA_SERVICE_PORT}
-      - GEMINI_API_KEY=${IA_SERVICE_GEMINI_API_KEY}
+      - MODEL_SERVICE_URL=${IA_SERVICE_MODEL_SERVICE_URL}
+      - MODEL_NAME=${IA_SERVICE_MODEL_NAME}
+    extra_hosts:
+      - "model-runner.docker.internal:host-gateway"
 
   gateway: # run en 3001
     build:
