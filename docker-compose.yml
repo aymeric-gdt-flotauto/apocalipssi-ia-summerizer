@@ -1,12 +1,14 @@
 services:
+
   db-service:
-    image: postgres:latest
+    image: mysql:latest
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: document_analysis
+      MYSQL_USER: identifiant
+      MYSQL_PASSWORD: motdepasse
     ports:
-      - 5432:5432
+      - 3306:3306
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
