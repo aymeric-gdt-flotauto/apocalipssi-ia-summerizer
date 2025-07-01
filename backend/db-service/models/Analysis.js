@@ -7,30 +7,32 @@ const Analysis = sequelize.define('Analysis', {
     primaryKey: true,
     defaultValue: () => Math.random().toString(36).substr(2, 9)
   },
-  documentId: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    references: {
-      model: 'documents',
-      key: 'id'
-    }
+ 
+  documentName: {
+    type: DataTypes.STRING(255),
+    allowNull: false 
   },
+  documentId: {
+    type: DataTypes.STRING(255),
+    allowNull: true 
+  },
+
   summary: {
     type: DataTypes.TEXT,
     allowNull: false
   },
   keyPoints: {
-    type: DataTypes.JSON, // Array de strings
+    type: DataTypes.JSON,
     allowNull: false,
     defaultValue: []
   },
   actionItems: {
-    type: DataTypes.JSON, // Array d'objets avec id, title, description, priority, category
+    type: DataTypes.JSON,
     allowNull: false,
     defaultValue: []
   },
   confidence: {
-    type: DataTypes.INTEGER, // Pourcentage 0-100
+    type: DataTypes.INTEGER,
     allowNull: false,
     validate: {
       min: 0,
@@ -38,47 +40,51 @@ const Analysis = sequelize.define('Analysis', {
     }
   },
   processingTime: {
-    type: DataTypes.DECIMAL(5, 2), // Temps en secondes avec 2 décimales
-    allowNull: false
+    type: DataTypes.DECIMAL(5, 2),
+    allowNull: false,
+    defaultValue: 0
   },
+  // Métadonnées de l'IA
   modelUsed: {
     type: DataTypes.STRING(100),
     allowNull: true,
-    defaultValue: 'gpt-4-turbo-preview'
+    defaultValue: 'unknown'
   },
   tokensUsed: {
     type: DataTypes.INTEGER,
-    allowNull: true
+    allowNull: true,
+    defaultValue: 0
+  },
+  // Catégorie/type de document
+  category: {
+    type: DataTypes.STRING(100),
+    allowNull: true 
+  },
+
+  tags: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: []
   }
 }, {
   tableName: 'analyses',
   timestamps: true,
   indexes: [
-  {
-    fields: ['document_id']  
-  },
-  {
-    fields: ['confidence']
-  },
-  {
-    fields: ['created_at']  
-  }
-]
+    {
+      fields: ['confidence']
+    },
+    {
+      fields: ['category']
+    },
+    {
+      fields: ['created_at']
+    },
+    {
+      fields: ['document_name']
+    }
+  ]
 });
 
-// Méthodes d'instance
-Analysis.prototype.addActionItem = function(title, description, priority = 'medium', category = 'General') {
-  const newActionItem = {
-    id: Math.random().toString(36).substr(2, 9),
-    title,
-    description,
-    priority,
-    category
-  };
-  
-  this.actionItems = [...this.actionItems, newActionItem];
-  return this.save();
-};
 
 Analysis.prototype.getFormattedKeyPoints = function() {
   return this.keyPoints?.map((point, index) => `${index + 1}. ${point}`).join('\n') || '';
@@ -86,6 +92,13 @@ Analysis.prototype.getFormattedKeyPoints = function() {
 
 Analysis.prototype.getHighPriorityActions = function() {
   return this.actionItems?.filter(action => action.priority === 'high') || [];
+};
+
+Analysis.prototype.addTag = function(tag) {
+  if (!this.tags.includes(tag)) {
+    this.tags = [...this.tags, tag];
+    return this.save();
+  }
 };
 
 module.exports = Analysis;

@@ -1,19 +1,8 @@
-const Document = require('./Document');
 const Analysis = require('./Analysis');
 
-// Définition des associations
-Document.hasOne(Analysis, {
-  foreignKey: 'documentId',
-  as: 'analysisResult',
-  onDelete: 'CASCADE'
-});
-
-Analysis.belongsTo(Document, {
-  foreignKey: 'documentId',
-  as: 'document'
-});
+// Pas d'associations car pas de documents
+// Juste export du modèle Analysis
 
 module.exports = {
-  Document,
   Analysis
 };

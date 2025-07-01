@@ -1,44 +1,80 @@
 const express = require('express');
-const rateLimit = require('express-rate-limit');
 const Joi = require('joi');
 const {
-  createAnalysis,
-  getAnalysis,
+  storeAnalysis,
   getAllAnalyses,
-  deleteAnalysis
+  getAnalysis,
+  updateAnalysis,
+  deleteAnalysis,
+  searchAnalyses,
+  getStats
 } = require('../controllers/analysisController');
-const { validateParams } = require('../middleware/validation');
+const { validate, validateParams } = require('../middleware/validation');
 
 const router = express.Router();
 
-// Limite de taux pour la génération d'analyses
-const analysisLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 heure
-  max: 20, // 20 analyses par IP par heure
-  message: {
-    success: false,
-    message: 'Limite de génération d\'analyses atteinte, veuillez réessayer dans 1 heure'
-  },
-  standardHeaders: true,
-  legacyHeaders: false
+// Schéma de validation pour stocker/modifier une analyse
+const analysisSchema = Joi.object({
+  documentName: Joi.string().required().min(3).max(255).messages({
+    'string.min': 'Le nom du document doit faire au moins 3 caractères',
+    'any.required': 'Le nom du document est requis'
+  }),
+  documentId: Joi.string().optional().allow(null),
+  summary: Joi.string().required().min(10).max(5000).messages({
+    'string.min': 'Le résumé doit faire au moins 10 caractères',
+    'any.required': 'Le résumé est requis'
+  }),
+  keyPoints: Joi.array().items(Joi.string().min(3).max(500)).required().min(1).max(20).messages({
+    'array.min': 'Au moins 1 point clé requis',
+    'any.required': 'Les points clés sont requis'
+  }),
+  actionItems: Joi.array().items(
+    Joi.object({
+      id: Joi.string().optional(),
+      title: Joi.string().required().min(3).max(200),
+      description: Joi.string().required().min(10).max(1000),
+      priority: Joi.string().valid('low', 'medium', 'high').default('medium'),
+      category: Joi.string().required().min(2).max(100)
+    })
+  ).max(10).default([]),
+  confidence: Joi.number().integer().min(0).max(100).required().messages({
+    'number.min': 'La confiance doit être entre 0 et 100',
+    'any.required': 'Le score de confiance est requis'
+  }),
+  processingTime: Joi.number().positive().max(300).default(0),
+  modelUsed: Joi.string().max(100).default('unknown'),
+  tokensUsed: Joi.number().integer().min(0).default(0),
+  category: Joi.string().max(100).optional().allow(null),
+  tags: Joi.array().items(Joi.string().max(50)).max(10).default([])
 });
 
 /**
- * @route   POST /api/analyses/documents/:documentId
- * @desc    Créer une analyse pour un document
+ * @route   GET /api/analyses/stats
+ * @desc    Obtenir les statistiques des analyses
  * @access  Public
  */
-router.post('/documents/:documentId',
-  analysisLimiter,
-  validateParams(Joi.object({
-    documentId: Joi.string().required()
-  })),
-  createAnalysis
+router.get('/stats', getStats);
+
+/**
+ * @route   GET /api/analyses/search
+ * @desc    Rechercher des analyses
+ * @access  Public
+ */
+router.get('/search', searchAnalyses);
+
+/**
+ * @route   POST /api/analyses
+ * @desc    STOCKER une nouvelle analyse (depuis le service IA)
+ * @access  Public
+ */
+router.post('/',
+  validate(analysisSchema),
+  storeAnalysis
 );
 
 /**
  * @route   GET /api/analyses
- * @desc    Obtenir la liste de toutes les analyses
+ * @desc    RÉCUPÉRER toutes les analyses avec pagination et filtres
  * @access  Public
  */
 router.get('/',
@@ -47,7 +83,7 @@ router.get('/',
 
 /**
  * @route   GET /api/analyses/:id
- * @desc    Obtenir une analyse spécifique
+ * @desc    RÉCUPÉRER une analyse spécifique
  * @access  Public
  */
 router.get('/:id',
@@ -58,8 +94,21 @@ router.get('/:id',
 );
 
 /**
+ * @route   PUT /api/analyses/:id
+ * @desc    METTRE À JOUR une analyse
+ * @access  Public
+ */
+router.put('/:id',
+  validateParams(Joi.object({
+    id: Joi.string().required()
+  })),
+  validate(analysisSchema),
+  updateAnalysis
+);
+
+/**
  * @route   DELETE /api/analyses/:id
- * @desc    Supprimer une analyse
+ * @desc    SUPPRIMER une analyse
  * @access  Public
  */
 router.delete('/:id',
