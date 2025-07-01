@@ -71,6 +71,7 @@ frontend <--> ia-service <--> Gemini API
 
    # In a new terminal, start the frontend
    cd ../../frontend
+   npm install
    npm run dev
    ```
 
