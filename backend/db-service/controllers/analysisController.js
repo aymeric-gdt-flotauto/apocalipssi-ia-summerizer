@@ -3,50 +3,22 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 
 // STOCKER une analyse (reçue du service IA)
 const storeAnalysis = asyncHandler(async (req, res) => {
-  const { 
-    documentName, 
-    documentId, 
-    summary, 
-    keyPoints, 
-    actionItems, 
-    confidence, 
-    processingTime, 
-    modelUsed, 
-    tokensUsed,
-    category,
-    tags 
-  } = req.body;
+  const { summary } = req.body;
 
   // Créer l'analyse
   const analysis = await Analysis.create({
-    documentName,
-    documentId: documentId || null,
-    summary,
-    keyPoints,
-    actionItems,
-    confidence,
-    processingTime: processingTime || 0,
-    modelUsed: modelUsed || 'unknown',
-    tokensUsed: tokensUsed || 0,
-    category: category || null,
-    tags: tags || []
+    summary
   });
 
-  console.log(`✅ Analyse stockée: ${analysis.id} pour "${documentName}"`);
+  console.log(`✅ Analyse stockée: ${analysis.id}`);
 
   res.status(201).json({
     success: true,
     message: 'Analyse stockée avec succès',
     data: {
       id: analysis.id,
-      documentName: analysis.documentName,
       summary: analysis.summary,
-      keyPoints: analysis.keyPoints,
-      actionItems: analysis.actionItems,
-      confidence: analysis.confidence,
-      processingTime: analysis.processingTime,
-      category: analysis.category,
-      tags: analysis.tags,
+      wordCount: analysis.getWordCount(),
       createdAt: analysis.createdAt
     }
   });
@@ -54,21 +26,16 @@ const storeAnalysis = asyncHandler(async (req, res) => {
 
 // RÉCUPÉRER toutes les analyses
 const getAllAnalyses = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, category, search } = req.query;
+  const { page = 1, limit = 10, search } = req.query;
   const offset = (page - 1) * limit;
 
   // Construire les conditions de recherche
   const whereConditions = {};
   
-  if (category) {
-    whereConditions.category = category;
-  }
-  
   if (search) {
-    whereConditions[require('sequelize').Op.or] = [
-      { documentName: { [require('sequelize').Op.like]: `%${search}%` } },
-      { summary: { [require('sequelize').Op.like]: `%${search}%` } }
-    ];
+    whereConditions.summary = { 
+      [require('sequelize').Op.like]: `%${search}%` 
+    };
   }
 
   const { count, rows: analyses } = await Analysis.findAndCountAll({
@@ -76,15 +43,24 @@ const getAllAnalyses = asyncHandler(async (req, res) => {
     limit: parseInt(limit),
     offset: parseInt(offset),
     order: [['createdAt', 'DESC']],
-    attributes: { exclude: ['updatedAt'] } // Pas besoin de updatedAt
+    attributes: { exclude: ['updatedAt'] }
   });
 
   const totalPages = Math.ceil(count / limit);
 
+  // Ajouter des métadonnées calculées
+  const analysesWithMeta = analyses.map(analysis => ({
+    id: analysis.id,
+    summary: analysis.summary,
+    shortSummary: analysis.getShortSummary(),
+    wordCount: analysis.getWordCount(),
+    createdAt: analysis.createdAt
+  }));
+
   res.json({
     success: true,
     data: {
-      analyses,
+      analyses: analysesWithMeta,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -111,14 +87,19 @@ const getAnalysis = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: analysis
+    data: {
+      id: analysis.id,
+      summary: analysis.summary,
+      wordCount: analysis.getWordCount(),
+      createdAt: analysis.createdAt
+    }
   });
 });
 
 // METTRE À JOUR une analyse
 const updateAnalysis = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const updateData = req.body;
+  const { summary } = req.body;
 
   const analysis = await Analysis.findByPk(id);
 
@@ -126,14 +107,19 @@ const updateAnalysis = asyncHandler(async (req, res) => {
     throw new AppError('Analyse non trouvée', 404);
   }
 
-  await analysis.update(updateData);
+  await analysis.update({ summary });
 
   console.log(`✅ Analyse mise à jour: ${id}`);
 
   res.json({
     success: true,
     message: 'Analyse mise à jour avec succès',
-    data: analysis
+    data: {
+      id: analysis.id,
+      summary: analysis.summary,
+      wordCount: analysis.getWordCount(),
+      createdAt: analysis.createdAt
+    }
   });
 });
 
@@ -159,51 +145,47 @@ const deleteAnalysis = asyncHandler(async (req, res) => {
 
 // RECHERCHER des analyses
 const searchAnalyses = asyncHandler(async (req, res) => {
-  const { q, category, confidence_min, confidence_max } = req.query;
+  const { q, min_words, max_words } = req.query;
 
   const whereConditions = {};
 
   // Recherche textuelle
   if (q) {
-    whereConditions[require('sequelize').Op.or] = [
-      { documentName: { [require('sequelize').Op.like]: `%${q}%` } },
-      { summary: { [require('sequelize').Op.like]: `%${q}%` } },
-      { category: { [require('sequelize').Op.like]: `%${q}%` } }
-    ];
-  }
-
-  // Filtres
-  if (category) {
-    whereConditions.category = category;
-  }
-
-  if (confidence_min) {
-    whereConditions.confidence = { 
-      [require('sequelize').Op.gte]: parseInt(confidence_min) 
+    whereConditions.summary = { 
+      [require('sequelize').Op.like]: `%${q}%` 
     };
   }
 
-  if (confidence_max) {
-    if (whereConditions.confidence) {
-      whereConditions.confidence[require('sequelize').Op.lte] = parseInt(confidence_max);
-    } else {
-      whereConditions.confidence = { 
-        [require('sequelize').Op.lte]: parseInt(confidence_max) 
-      };
-    }
-  }
-
-  const analyses = await Analysis.findAll({
+  let analyses = await Analysis.findAll({
     where: whereConditions,
-    order: [['confidence', 'DESC'], ['createdAt', 'DESC']],
+    order: [['createdAt', 'DESC']],
     limit: 50 // Limite pour la recherche
   });
+
+  // Filtrage par nombre de mots (post-requête car pas de champ en DB)
+  if (min_words || max_words) {
+    analyses = analyses.filter(analysis => {
+      const wordCount = analysis.getWordCount();
+      if (min_words && wordCount < parseInt(min_words)) return false;
+      if (max_words && wordCount > parseInt(max_words)) return false;
+      return true;
+    });
+  }
+
+  // Ajouter métadonnées
+  const analysesWithMeta = analyses.map(analysis => ({
+    id: analysis.id,
+    summary: analysis.summary,
+    shortSummary: analysis.getShortSummary(),
+    wordCount: analysis.getWordCount(),
+    createdAt: analysis.createdAt
+  }));
 
   res.json({
     success: true,
     data: {
-      analyses,
-      total: analyses.length
+      analyses: analysesWithMeta,
+      total: analysesWithMeta.length
     }
   });
 });
@@ -212,21 +194,18 @@ const searchAnalyses = asyncHandler(async (req, res) => {
 const getStats = asyncHandler(async (req, res) => {
   const totalAnalyses = await Analysis.count();
   
-  const avgConfidence = await Analysis.findOne({
-    attributes: [
-      [require('sequelize').fn('AVG', require('sequelize').col('confidence')), 'avgConfidence']
-    ],
-    raw: true
+  // Statistiques calculées côté application
+  const allAnalyses = await Analysis.findAll({
+    attributes: ['summary', 'createdAt']
   });
 
-  const byCategory = await Analysis.findAll({
-    attributes: [
-      'category',
-      [require('sequelize').fn('COUNT', require('sequelize').col('id')), 'count']
-    ],
-    group: ['category'],
-    raw: true
-  });
+  const wordCounts = allAnalyses.map(a => a.summary.split(/\s+/).length);
+  const avgWords = wordCounts.length > 0 
+    ? Math.round(wordCounts.reduce((a, b) => a + b, 0) / wordCounts.length)
+    : 0;
+
+  const maxWords = wordCounts.length > 0 ? Math.max(...wordCounts) : 0;
+  const minWords = wordCounts.length > 0 ? Math.min(...wordCounts) : 0;
 
   const recentAnalyses = await Analysis.count({
     where: {
@@ -240,8 +219,9 @@ const getStats = asyncHandler(async (req, res) => {
     success: true,
     data: {
       totalAnalyses,
-      averageConfidence: Math.round(avgConfidence.avgConfidence || 0),
-      analysesByCategory: byCategory,
+      averageWords: avgWords,
+      maxWords,
+      minWords,
       recentAnalyses: recentAnalyses
     }
   });

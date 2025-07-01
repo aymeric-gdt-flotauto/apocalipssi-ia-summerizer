@@ -13,39 +13,13 @@ const { validate, validateParams } = require('../middleware/validation');
 
 const router = express.Router();
 
-// Schéma de validation pour stocker/modifier une analyse
+// Schéma de validation simplifié pour stocker/modifier une analyse
 const analysisSchema = Joi.object({
-  documentName: Joi.string().required().min(3).max(255).messages({
-    'string.min': 'Le nom du document doit faire au moins 3 caractères',
-    'any.required': 'Le nom du document est requis'
-  }),
-  documentId: Joi.string().optional().allow(null),
-  summary: Joi.string().required().min(10).max(5000).messages({
+  summary: Joi.string().required().min(10).max(10000).messages({
     'string.min': 'Le résumé doit faire au moins 10 caractères',
+    'string.max': 'Le résumé ne peut pas dépasser 10000 caractères',
     'any.required': 'Le résumé est requis'
-  }),
-  keyPoints: Joi.array().items(Joi.string().min(3).max(500)).required().min(1).max(20).messages({
-    'array.min': 'Au moins 1 point clé requis',
-    'any.required': 'Les points clés sont requis'
-  }),
-  actionItems: Joi.array().items(
-    Joi.object({
-      id: Joi.string().optional(),
-      title: Joi.string().required().min(3).max(200),
-      description: Joi.string().required().min(10).max(1000),
-      priority: Joi.string().valid('low', 'medium', 'high').default('medium'),
-      category: Joi.string().required().min(2).max(100)
-    })
-  ).max(10).default([]),
-  confidence: Joi.number().integer().min(0).max(100).required().messages({
-    'number.min': 'La confiance doit être entre 0 et 100',
-    'any.required': 'Le score de confiance est requis'
-  }),
-  processingTime: Joi.number().positive().max(300).default(0),
-  modelUsed: Joi.string().max(100).default('unknown'),
-  tokensUsed: Joi.number().integer().min(0).default(0),
-  category: Joi.string().max(100).optional().allow(null),
-  tags: Joi.array().items(Joi.string().max(50)).max(10).default([])
+  })
 });
 
 /**

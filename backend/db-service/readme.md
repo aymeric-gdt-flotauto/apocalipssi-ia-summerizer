@@ -1,6 +1,6 @@
 # 📊 DB Service - Stockage d'Analyses IA
 
-Service de stockage pur pour analyses de documents générées par IA. Reçoit du JSON d'analyses et les stocke en base de données.
+Service de stockage minimaliste pour analyses textuelles générées par IA. Stocke et gère des résumés de documents avec métadonnées calculées automatiquement.
 
 ## 🚀 Installation rapide
 
@@ -71,32 +71,37 @@ curl http://localhost:3000/api/health
 # Lister les analyses
 curl http://localhost:3000/api/analyses
 
-# Statistiques
+# Statistiques (nombre total, mots moyens, etc.)
 curl http://localhost:3000/api/analyses/stats
+
+# Créer une nouvelle analyse
+curl -X POST http://localhost:3000/api/analyses \
+  -H "Content-Type: application/json" \
+  -d '{"summary": "Ceci est un résumé de test pour valider l API REST"}'
+
+# Rechercher par mot-clé
+curl "http://localhost:3000/api/analyses/search?q=test"
+
+# Filtrer par nombre de mots
+curl "http://localhost:3000/api/analyses/search?min_words=20&max_words=100"
 ```
 
 ## 📝 Format d'une analyse
 
 ```json
 {
-  "documentName": "Mon_Document.pdf",
-  "documentId": "doc_123",
+  "summary": "Résumé complet du document analysé par l'IA. Peut contenir plusieurs paragraphes décrivant le contenu, les points importants, et les conclusions principales..."
+}
+```
+
+**Réponse de l'API :**
+```json
+{
+  "id": "abc123def",
   "summary": "Résumé du document...",
-  "keyPoints": ["Point 1", "Point 2"],
-  "actionItems": [
-    {
-      "title": "Action à faire",
-      "description": "Description détaillée",
-      "priority": "high",
-      "category": "Urgent"
-    }
-  ],
-  "confidence": 95,
-  "processingTime": 3.2,
-  "modelUsed": "gpt-4",
-  "tokensUsed": 1200,
-  "category": "Financier",
-  "tags": ["finance", "rapport"]
+  "wordCount": 156,
+  "shortSummary": "Résumé du document... (tronqué à 100 chars)",
+  "createdAt": "2025-07-01T10:30:00Z"
 }
 ```
 
@@ -129,10 +134,11 @@ db-service/
 ## ⚡ Usage typique
 
 1. **Service IA** analyse un document
-2. **Service IA** envoie le JSON d'analyse via `POST /api/analyses`
-3. **Frontend** récupère les analyses via `GET /api/analyses`
-4. **Utilisateur** consulte/recherche les analyses
+2. **Service IA** envoie le résumé via `POST /api/analyses`
+3. **Système** calcule automatiquement les métadonnées (nombre de mots, résumé court)
+4. **Frontend** récupère les analyses via `GET /api/analyses`
+5. **Utilisateur** consulte/recherche les analyses par mots-clés ou nombre de mots
 
 ---
 
-**🎯 Objectif :** Stockage pur et simple d'analyses JSON provenant d'un service IA externe.
+**🎯 Objectif :** Stockage simple et efficace de résumés textuels avec fonctionnalités de recherche intégrées.
