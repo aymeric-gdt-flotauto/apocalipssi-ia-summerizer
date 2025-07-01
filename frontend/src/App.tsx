@@ -110,7 +110,7 @@ const AppContent: React.FC = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/ia-service';
       const response = await fetch(`${apiUrl}/api/analyze`, {
         method: 'POST',
         body: formData,

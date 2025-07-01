@@ -60,7 +60,7 @@ interface StatsResponse {
   };
 }
 
-const API_BASE_URL = import.meta.env.REACT_APP_DB_SERVICE_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.REACT_APP_DB_SERVICE_URL || 'http://localhost:3001/db-service/api';
 
 export const analysisService = {
   async getAllAnalyses(page: number = 1, limit: number = 10, search: string = ''): Promise<AnalysesResponse> {
