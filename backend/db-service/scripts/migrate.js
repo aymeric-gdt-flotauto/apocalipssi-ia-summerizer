@@ -18,6 +18,11 @@ const askQuestion = (question) => {
 
 // Fonction principale de migration
 const runMigration = async () => {
+  // Détecter l'environnement Docker ou non-interactif
+  const isDockerOrNonInteractive = process.env.NODE_ENV === 'production' || 
+                                 process.env.DOCKER === 'true' || 
+                                 !process.stdin.isTTY;
+  
   try {
     console.log('🔄 Début de la migration de la base de données...\n');
 
@@ -25,23 +30,31 @@ const runMigration = async () => {
     console.log('1️⃣  Test de connexion à MySQL...');
     await testConnection();
 
-    // Demander confirmation pour la synchronisation
     console.log('\n2️⃣  Synchronisation des modèles...');
     console.log('📋 Structure: Table analyses uniquement (stockage pur)');
-
-    const shouldReset = await askQuestion(
-      '⚠️  Voulez-vous réinitialiser la base de données ? (y/N): '
-    );
-
-    const forceSync = shouldReset.toLowerCase() === 'y' || shouldReset.toLowerCase() === 'yes';
-
-    if (forceSync) {
-      console.log('🗑️  ATTENTION: Toutes les données existantes seront supprimées !');
-      const confirm = await askQuestion('Confirmer ? (y/N): ');
-
-      if (confirm.toLowerCase() !== 'y' && confirm.toLowerCase() !== 'yes') {
-        console.log('❌ Migration annulée');
-        process.exit(0);
+    
+    let forceSync = false;
+    
+    if (isDockerOrNonInteractive) {
+      // En mode Docker/non-interactif, utiliser des valeurs par défaut
+      console.log('🐳 Mode Docker détecté - migration automatique sans réinitialisation');
+      forceSync = false; // Ne pas réinitialiser en production/Docker
+    } else {
+      // Mode interactif normal
+      const shouldReset = await askQuestion(
+        '⚠️  Voulez-vous réinitialiser la base de données ? (y/N): '
+      );
+      
+      forceSync = shouldReset.toLowerCase() === 'y' || shouldReset.toLowerCase() === 'yes';
+      
+      if (forceSync) {
+        console.log('🗑️  ATTENTION: Toutes les données existantes seront supprimées !');
+        const confirm = await askQuestion('Confirmer ? (y/N): ');
+        
+        if (confirm.toLowerCase() !== 'y' && confirm.toLowerCase() !== 'yes') {
+          console.log('❌ Migration annulée');
+          process.exit(0);
+        }
       }
     }
 
@@ -64,7 +77,10 @@ const runMigration = async () => {
     console.error('Stack trace:', error.stack);
     process.exit(1);
   } finally {
-    rl.close();
+    // Fermer readline seulement s'il est utilisé
+    if (!isDockerOrNonInteractive) {
+      rl.close();
+    }
     await sequelize.close();
   }
 };

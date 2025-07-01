@@ -1,26 +1,81 @@
 services:
 
-  mysql:
+  database-mysql: # run en 3306
     image: mysql:latest
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: document_analysis
-      MYSQL_USER: identifiant
-      MYSQL_PASSWORD: motdepasse
-    ports:
-      - 3306:3306
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
+    networks:
+      - database-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
 
-  ia-service:
+  db-service: # run en 3000
+    build:
+      context: ./backend/db-service
+      dockerfile: Dockerfile
+    depends_on:
+      database-mysql:
+        condition: service_healthy
+    networks:
+      - service-network
+      - database-network
+    environment:
+      - PORT=${DB_SERVICE_PORT}
+      - NODE_ENV=${DB_SERVICE_NODE_ENV}
+      - DOCKER=true
+      - DB_HOST=database-mysql
+      - DB_PORT=3306
+      - DB_NAME=${MYSQL_DATABASE}
+      - DB_USER=${MYSQL_USER}
+      - DB_PASSWORD=${MYSQL_PASSWORD}
+      - MAX_FILE_SIZE=${DB_SERVICE_MAX_FILE_SIZE}
+      - UPLOAD_PATH=${DB_SERVICE_UPLOAD_PATH}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+
+  ia-service: # run en 5000
     build:
       context: ./backend/ia-service
       dockerfile: Dockerfile
-    ports:
-      - 5000:5000
     depends_on:
+    
+      - db-service
+    networks:
+      - service-network
+    environment:
+      - PORT=${IA_SERVICE_PORT}
+      - GEMINI_API_KEY=${IA_SERVICE_GEMINI_API_KEY}
+
+  gateway: # run en 3001
+    build:
+      context: ./backend/gateway
+      dockerfile: Dockerfile
+    ports:
+      - 3001:3001
+    networks:
+      - service-network
+      - external-network
+    environment:
+      - PORT=${GATEWAY_PORT}
+      - DB_SERVICE_URL=${DB_SERVICE_URL}
+      - IA_SERVICE_URL=${IA_SERVICE_URL}
+    depends_on:
+      - db-service
+      - ia-service
 
 volumes:
-  postgres_data:
-      - db-service
+  mysql_data:
 
+networks:
+  database-network:
+    driver: bridge
+  service-network:
+    driver: bridge
+  external-network:
+    driver: bridge
