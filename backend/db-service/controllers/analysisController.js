@@ -3,11 +3,16 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 
 // STOCKER une analyse (reçue du service IA)
 const storeAnalysis = asyncHandler(async (req, res) => {
-  const { summary } = req.body;
+  const { summary, keyPoints, actionItems, confidence, processingTime, documentName } = req.body;
 
   // Créer l'analyse
   const analysis = await Analysis.create({
-    summary
+    summary,
+    keyPoints,
+    actionItems,
+    confidence,
+    processingTime,
+    documentName
   });
 
   console.log(`✅ Analyse stockée: ${analysis.id}`);
@@ -17,7 +22,12 @@ const storeAnalysis = asyncHandler(async (req, res) => {
     message: 'Analyse stockée avec succès',
     data: {
       id: analysis.id,
+      documentName: analysis.documentName,
       summary: analysis.summary,
+      keyPoints: analysis.keyPoints,
+      actionItems: analysis.actionItems,
+      confidence: analysis.confidence,
+      processingTime: analysis.processingTime,
       wordCount: analysis.getWordCount(),
       createdAt: analysis.createdAt
     }
@@ -31,7 +41,7 @@ const getAllAnalyses = asyncHandler(async (req, res) => {
 
   // Construire les conditions de recherche
   const whereConditions = {};
-  
+
   if (search) {
     whereConditions.summary = { 
       [require('sequelize').Op.like]: `%${search}%` 
@@ -51,7 +61,12 @@ const getAllAnalyses = asyncHandler(async (req, res) => {
   // Ajouter des métadonnées calculées
   const analysesWithMeta = analyses.map(analysis => ({
     id: analysis.id,
+    documentName: analysis.documentName,
     summary: analysis.summary,
+    keyPoints: analysis.keyPoints,
+    actionItems: analysis.actionItems,
+    confidence: analysis.confidence,
+    processingTime: analysis.processingTime,
     shortSummary: analysis.getShortSummary(),
     wordCount: analysis.getWordCount(),
     createdAt: analysis.createdAt
@@ -89,7 +104,12 @@ const getAnalysis = asyncHandler(async (req, res) => {
     success: true,
     data: {
       id: analysis.id,
+      documentName: analysis.documentName,
       summary: analysis.summary,
+      keyPoints: analysis.keyPoints,
+      actionItems: analysis.actionItems,
+      confidence: analysis.confidence,
+      processingTime: analysis.processingTime,
       wordCount: analysis.getWordCount(),
       createdAt: analysis.createdAt
     }
@@ -175,7 +195,12 @@ const searchAnalyses = asyncHandler(async (req, res) => {
   // Ajouter métadonnées
   const analysesWithMeta = analyses.map(analysis => ({
     id: analysis.id,
+    documentName: analysis.documentName,
     summary: analysis.summary,
+    keyPoints: analysis.keyPoints,
+    actionItems: analysis.actionItems,
+    confidence: analysis.confidence,
+    processingTime: analysis.processingTime,
     shortSummary: analysis.getShortSummary(),
     wordCount: analysis.getWordCount(),
     createdAt: analysis.createdAt
@@ -193,7 +218,7 @@ const searchAnalyses = asyncHandler(async (req, res) => {
 // STATISTIQUES des analyses
 const getStats = asyncHandler(async (req, res) => {
   const totalAnalyses = await Analysis.count();
-  
+
   // Statistiques calculées côté application
   const allAnalyses = await Analysis.findAll({
     attributes: ['summary', 'createdAt']
