@@ -1,6 +1,6 @@
 services:
 
-  db-service:
+  mysql:
     image: mysql:latest
     environment:
       MYSQL_ROOT_PASSWORD: root
@@ -19,10 +19,8 @@ services:
     ports:
       - 5000:5000
     depends_on:
-      - db-service
-
 
 volumes:
   postgres_data:
-
+      - db-service
 

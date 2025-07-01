@@ -7,10 +7,40 @@ const Analysis = sequelize.define('Analysis', {
     primaryKey: true,
     defaultValue: () => Math.random().toString(36).substr(2, 9)
   },
-  
+
+  documentName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: 'Document sans nom'
+  },
+
   summary: {
     type: DataTypes.TEXT,
     allowNull: false
+  },
+
+  keyPoints: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: []
+  },
+
+  actionItems: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: []
+  },
+
+  confidence: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    defaultValue: 0
+  },
+
+  processingTime: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    defaultValue: 0
   }
 }, {
   tableName: 'analyses',

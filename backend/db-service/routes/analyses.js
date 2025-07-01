@@ -15,11 +15,22 @@ const router = express.Router();
 
 // Schéma de validation simplifié pour stocker/modifier une analyse
 const analysisSchema = Joi.object({
+  documentName: Joi.string().max(255).optional(),
   summary: Joi.string().required().min(10).max(10000).messages({
     'string.min': 'Le résumé doit faire au moins 10 caractères',
     'string.max': 'Le résumé ne peut pas dépasser 10000 caractères',
     'any.required': 'Le résumé est requis'
-  })
+  }),
+  keyPoints: Joi.array().items(Joi.string()).optional(),
+  actionItems: Joi.array().items(Joi.object({
+    id: Joi.string().optional(),
+    title: Joi.string().optional(),
+    description: Joi.string().optional(),
+    priority: Joi.string().optional(),
+    category: Joi.string().optional()
+  })).optional(),
+  confidence: Joi.number().min(0).max(100).optional(),
+  processingTime: Joi.number().min(0).optional()
 });
 
 /**

@@ -1,12 +1,13 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Brain, Sparkles, FileCheck, X, AlertCircle, CheckCircle, FileText } from 'lucide-react';
+import { AnalysisProvider, useAnalysis } from './context/AnalysisContext';
+import { Analysis } from './services/analysisService';
 import { Navigation } from './components/Navigation';
 import { UploadZone } from './components/UploadZone';
 import { DocumentPreview } from './components/DocumentPreview';
 import { AnalysisResults } from './components/AnalysisResults';
 import { LoadingSpinner } from './components/LoadingSpinner';
-import { HistoryPage } from './components/HistoryPage';
-import type { Document, AnalysisResult, HistoryEntry } from './types';
+import HistoryPage from './components/HistoryPage';
 
 interface Toast {
   id: string;
@@ -14,7 +15,16 @@ interface Toast {
   message: string;
 }
 
-const Toast = ({ toast, onClose }: { toast: Toast; onClose: (id: string) => void }) => {
+interface Document {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  uploadedAt: Date;
+  status: 'uploading' | 'processing' | 'completed' | 'error';
+}
+
+const Toast: React.FC<{ toast: Toast; onClose: (id: string) => void }> = ({ toast, onClose }) => {
   return (
     <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${
       toast.type === 'error' ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'
@@ -43,13 +53,14 @@ const Toast = ({ toast, onClose }: { toast: Toast; onClose: (id: string) => void
   );
 };
 
-function App() {
+const AppContent: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<'home' | 'history'>('home');
   const [document, setDocument] = useState<Document | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<Analysis | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
+
+  const { recentAnalyses, refreshAfterScan, loadAnalysisById } = useAnalysis();
 
   const showToast = (type: 'success' | 'error', message: string) => {
     const id = Math.random().toString(36).substr(2, 9);
@@ -99,31 +110,37 @@ function App() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const response = await fetch(`${apiUrl}/api/analyze`, {
         method: 'POST',
         body: formData,
       });
 
-      const result: AnalysisResult = await response.json();
-
       if (!response.ok) {
         throw new Error(`Erreur API: ${response.status}`);
       }
 
+      const result = await response.json();
+
+      // Transformer en objet Analysis complet
+      const analysis: Analysis = {
+        id: Math.random().toString(36).substr(2, 9),
+        documentName: result.documentName || file.name,
+        summary: result.summary,
+        keyPoints: result.keyPoints || [],
+        actionItems: result.actionItems || [],
+        confidence: result.confidence || 0,
+        processingTime: result.processingTime || 0,
+        createdAt: new Date().toISOString()
+      };
+
       const completedDocument = { ...newDocument, status: 'completed' as const };
       setDocument(completedDocument);
-      setAnalysisResult(result);
+      setAnalysisResult(analysis);
       showToast('success', 'Analyse terminée avec succès');
 
-      // Ajouter à l'historique
-      const historyEntry: HistoryEntry = {
-        id: Math.random().toString(36).substr(2, 9),
-        document: completedDocument,
-        analysisResult: result,
-        createdAt: new Date()
-      };
-      setHistoryEntries(prev => [historyEntry, ...prev]);
+      // Mettre à jour la base de données et les analyses récentes
+      await refreshAfterScan(analysis);
 
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
@@ -132,7 +149,7 @@ function App() {
     } finally {
       setIsProcessing(false);
     }
-  }, []);
+  }, [refreshAfterScan]);
 
   const handleNewDocument = useCallback(() => {
     setDocument(null);
@@ -140,15 +157,34 @@ function App() {
     setIsProcessing(false);
   }, []);
 
-  const handleViewAnalysis = useCallback((entry: HistoryEntry) => {
-    setDocument(entry.document);
-    setAnalysisResult(entry.analysisResult);
-    setIsProcessing(false);
-    setCurrentPage('home');
-  }, []);
+  const handleViewAnalysis = useCallback(async (analysis: Analysis) => {
+    try {
+      // Si c'est juste un ID, charger l'analyse complète
+      if (analysis.id && !analysis.summary) {
+        await loadAnalysisById(analysis.id);
+      } else {
+        setAnalysisResult(analysis);
+      }
+
+      // Créer un document factice pour l'affichage
+      const fakeDocument: Document = {
+        id: analysis.id,
+        name: analysis.documentName || 'Document',
+        size: 0,
+        type: 'application/pdf',
+        uploadedAt: new Date(analysis.createdAt),
+        status: 'completed'
+      };
+
+      setDocument(fakeDocument);
+      setCurrentPage('home');
+    } catch (error) {
+      showToast('error', 'Erreur lors du chargement de l\'analyse');
+    }
+  }, [loadAnalysisById]);
 
   const handleDeleteEntry = useCallback((id: string) => {
-    setHistoryEntries(prev => prev.filter(entry => entry.id !== id));
+    // Cette fonction sera gérée par le composant HistoryPage
     showToast('success', 'Entrée supprimée de l\'historique');
   }, []);
 
@@ -163,7 +199,6 @@ function App() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {currentPage === 'history' ? (
           <HistoryPage
-            historyEntries={historyEntries}
             onViewAnalysis={handleViewAnalysis}
             onDeleteEntry={handleDeleteEntry}
           />
@@ -277,7 +312,7 @@ function App() {
                 </ul>
               </div>
 
-              {historyEntries.length > 0 && currentPage === 'home' && (
+              {recentAnalyses.length > 0 && currentPage === 'home' && (
                 <div className="bg-white rounded-xl shadow-sm p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-gray-900">Analyses Récentes</h3>
@@ -289,10 +324,10 @@ function App() {
                     </button>
                   </div>
                   <div className="space-y-3">
-                    {historyEntries.slice(0, 3).map((entry) => (
+                    {recentAnalyses.slice(0, 3).map((analysis) => (
                       <div
-                        key={entry.id}
-                        onClick={() => handleViewAnalysis(entry)}
+                        key={analysis.id}
+                        onClick={() => handleViewAnalysis(analysis)}
                         className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors"
                       >
                         <div className="p-1 bg-blue-100 rounded">
@@ -300,14 +335,17 @@ function App() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">
-                            {entry.document.name}
+                            {analysis.documentName}
                           </p>
                           <p className="text-xs text-gray-500">
                             {new Intl.DateTimeFormat('fr-FR', {
                               day: 'numeric',
                               month: 'short'
-                            }).format(entry.createdAt)}
+                            }).format(new Date(analysis.createdAt))}
                           </p>
+                        </div>
+                        <div className="text-xs text-blue-600 font-medium">
+                          {analysis.confidence}%
                         </div>
                       </div>
                     ))}
@@ -320,6 +358,14 @@ function App() {
       </main>
     </div>
   );
-}
+};
+
+const App: React.FC = () => {
+  return (
+    <AnalysisProvider>
+      <AppContent />
+    </AnalysisProvider>
+  );
+};
 
 export default App;

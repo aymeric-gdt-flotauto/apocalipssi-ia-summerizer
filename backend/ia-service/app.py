@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import google.generativeai as genai
@@ -144,6 +145,28 @@ def analyze_document():
             return jsonify(create_error_response("Aucun texte extrait du PDF", time.time())), 400
 
         result = analyze_with_gemini(text)
+
+        # Ajouter le nom du document au résultat
+        result["documentName"] = file.filename
+
+        # Stocker les résultats dans la base de données via le service DB
+        try:
+            db_service_url = os.getenv("DB_SERVICE_URL", "http://localhost:3000/api/analyses")
+            db_response = requests.post(
+                db_service_url,
+                json=result,
+                headers={"Content-Type": "application/json"}
+            )
+
+            if db_response.status_code == 201:
+                app.logger.info(f"Analyse stockée avec succès dans la base de données")
+            else:
+                app.logger.warning(f"Échec du stockage de l'analyse: {db_response.status_code} - {db_response.text}")
+        except Exception as db_error:
+            app.logger.error(f"Erreur lors du stockage de l'analyse: {str(db_error)}")
+            # On continue même si le stockage échoue, pour ne pas bloquer l'utilisateur
+
+        # Renvoyer les résultats au frontend
         return jsonify(result), 200
 
     except Exception as e:
