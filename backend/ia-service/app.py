@@ -204,7 +204,7 @@ def analyze_document():
         if not text.strip():
             return jsonify(create_error_response("Aucun texte extrait du PDF", time.time())), 400
 
-        result = analyze_with_gemini(text)
+        result = analyze_with_model(text)
 
         # Ajouter le nom du document au résultat
         result["documentName"] = file.filename
