@@ -29,6 +29,7 @@ services:
     environment:
       - PORT=${DB_SERVICE_PORT}
       - NODE_ENV=${DB_SERVICE_NODE_ENV}
+      - DOCKER=true
       - DB_HOST=database-mysql
       - DB_PORT=3306
       - DB_NAME=${MYSQL_DATABASE}
