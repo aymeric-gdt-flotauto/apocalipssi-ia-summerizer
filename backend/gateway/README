@@ -1,0 +1,5 @@
+Gateway qui permet de router sur db-service et ia-service
+
+gateway_url/db-service/anything : db-service (port 3000)
+gateway_url/ia-service/anything : ia-service (port 5000)
+gateway_url/ : gateway (port 3001) -> gateway_url/db-service/anything et gateway_url/ia-service/anything
